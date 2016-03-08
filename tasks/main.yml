@@ -1,0 +1,38 @@
+---
+
+- name: disable requiretty for sudo
+  sudo_user: root
+  lineinfile: dest=/etc/sudoers regexp="^Defaults\s+requiretty" line="#Defaults requiretty"
+
+- name: unpack supervisor wheelhouse
+  unarchive: src=supervisor-3.2.0-wheelhouse.tar.gz dest=/tmp
+
+- name: install supervisor from wheels
+  sudo_user: root
+  command: pip install --use-wheel --no-index --find-links=/tmp/wheelhouse supervisor
+
+- name: install supervisor init script
+  sudo_user: root
+  copy: src=redhat-init-equeffelec dest=/etc/init.d/supervisor owner=root group=root mode=0755
+
+- name: copy supervisor configuration file
+  sudo_user: root
+  copy: src=supervisord.conf dest=/etc/supervisord.conf owner=root mode=0644
+  notify: supervisord reload
+
+- name: create supervisord log directory
+  sudo_user: root
+  file: state=directory path=/var/log/supervisord
+
+- name: create a link to /usr/bin/supervisord/supervisorctl if RHEL
+  sudo_user: root
+  file: state=link path=/usr/local/bin/{{item}} src=/usr/bin/{{item}} owner=root group=root
+  when: ansible_distribution == "RedHat"
+  with_items:
+    - supervisord
+    - supervisorctl
+
+- name: enable supervisor service
+  sudo_user: root
+  service: name=supervisor enabled=yes state=started
+
